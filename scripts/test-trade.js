@@ -56,9 +56,12 @@ async function main() {
       log(`4. ${k} reduce-only limit ${c} @ ${px} ✓`);
     }
 
-    const be = tick(entry, inst);
-    await client.amendStop({ symbol, algoId, triggerPx: be });
-    log(`5. stop moved to breakeven @ ${be} ✓`);
+    // Live, the stop goes to entry once T1 has filled (price 1.5R above it).
+    // Right after entry price can sit a tick under it, where OKX refuses a
+    // stop — so the test moves it up to 1.5% under entry instead.
+    const moved = tick(entry * 0.985, inst);
+    await client.amendStop({ symbol, algoId, triggerPx: moved });
+    log(`5. stop moved up to ${moved} (same call as the breakeven move) ✓`);
 
     await client.cancelAll(symbol);
     log('6. all orders and the stop cancelled ✓');
