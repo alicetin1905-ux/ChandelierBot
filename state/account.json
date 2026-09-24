@@ -1,6 +1,8 @@
 {
   "startingBalance": 1000,
   "balance": 1000,
-  "createdAt": 1790258469068,
-  "updatedAt": 1790258864134
+  "createdAt": 1790288644067,
+  "updatedAt": 1790288645764,
+  "mode": "okx-demo",
+  "exchangeEquity": 999.96997214717
 }
