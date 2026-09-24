@@ -221,15 +221,25 @@ async function main() {
 
   if (args.includes('--check')) {
     if (!client) { console.log('No OKX demo keys set — the bot runs in paper mode.'); return; }
-    const c = await checkAccount(client);
-    const w = await client.getWallet();
-    const pos = await client.getPositions();
-    console.log(`OKX demo OK on ${client.site} · account mode ${c.acctLv} · position mode ${c.posMode}`);
-    console.log(`${config.SETTLE_CCY} equity ${w.equity.toFixed(2)} · available ${w.available.toFixed(2)}`);
-    console.log(`Tradable: ${[...client.tradable].map(s => client.instId(s)).join(', ')}`);
-    if (client.missing.length) console.log(`Not available to this account (skipped): ${client.missing.join(', ')}`);
-    if (w.available < config.PORTFOLIO.MARGIN_USDT) console.log(`WARNING: only ${w.available.toFixed(2)} ${config.SETTLE_CCY} available — add demo ${config.SETTLE_CCY} to the Trading account or the bot can't open trades`);
-    console.log(`Open swap positions: ${Object.keys(pos).length ? Object.entries(pos).map(([s, p]) => `${s} ${p.bias === 1 ? 'long' : 'short'} ${p.contracts}`).join(', ') : 'none'}`);
+    const c = client.config;
+    console.log(`OKX demo key OK on ${client.site} · account mode ${c.acctLv} · position mode ${c.posMode}`);
+    const bal = await client.balances();
+    console.log(`Balances: ${bal.details.length ? bal.details.map(d => `${d.ccy} ${d.eq} (available ${d.avail})`).join(', ') : 'none'} · total ≈ $${bal.totalEq.toFixed(2)}`);
+    const swaps = await client.listSwaps();
+    const bySettle = {};
+    for (const i of swaps) bySettle[i.settle] = (bySettle[i.settle] || 0) + 1;
+    console.log(`Perps this account can trade: ${swaps.length} (${Object.entries(bySettle).map(([k, v]) => `${v} ${k}-margined`).join(', ') || 'none'})`);
+    for (const ccy of Object.keys(bySettle)) {
+      const have = config.SYMBOLS.filter(sym => swaps.some(i => i.instId === okxDemo.instId(sym, ccy)));
+      console.log(`  bot coins as ${ccy}-margined: ${have.length ? have.map(sym => sym.replace('USDT', '')).join(', ') : 'none'}`);
+    }
+    await checkAccount(client).catch(err => console.log('Bot setting SETTLE_CCY=' + config.SETTLE_CCY + ': ' + err.message));
+    if (client.tradable && client.tradable.size) {
+      const w = await client.getWallet();
+      console.log(`Bot trades ${[...client.tradable].map(sym => client.instId(sym)).join(', ')} · ${config.SETTLE_CCY} available ${w.available.toFixed(2)}`);
+      if (client.missing.length) console.log(`Not available (skipped): ${client.missing.join(', ')}`);
+      if (w.available < config.PORTFOLIO.MARGIN_USDT) console.log(`WARNING: only ${w.available.toFixed(2)} ${config.SETTLE_CCY} available — the bot can't open trades until the demo Trading account holds more`);
+    }
     return;
   }
 

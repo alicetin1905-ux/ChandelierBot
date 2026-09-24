@@ -99,9 +99,22 @@ function createClient({ apiKey, apiSecret, passphrase, base = 'https://www.okx.c
     async getInstrument(symbol) {
       if (instCache[symbol]) return instCache[symbol];
       // The account's own list: only what this account (region, mode) may trade.
-      const [i] = await call('GET', '/api/v5/account/instruments', { instType: 'SWAP', instId: inst(symbol) }).catch(() => []);
+      const [i] = await call('GET', '/api/v5/account/instruments', { instType: 'SWAP', instId: inst(symbol) }).catch((err) => {
+        if (/OKX (51001|51000)/.test(err.message)) return []; // unknown / unavailable instrument
+        throw err;
+      });
       if (!i) throw new Error(`${inst(symbol)} is not available to this OKX account`);
       return (instCache[symbol] = { ctVal: +i.ctVal, lotSz: +i.lotSz, minSz: +i.minSz, tickSz: +i.tickSz, lotStr: i.lotSz, tickStr: i.tickSz });
+    },
+
+    // Diagnostics for --check: every swap this account may trade, and every non-zero balance.
+    async listSwaps() {
+      const rows = await call('GET', '/api/v5/account/instruments', { instType: 'SWAP' });
+      return rows.map(i => ({ instId: i.instId, settle: i.settleCcy, state: i.state }));
+    },
+    async balances() {
+      const [b] = await call('GET', '/api/v5/account/balance');
+      return { totalEq: +(b && b.totalEq || 0), details: (b && b.details || []).filter(d => +d.eq).map(d => ({ ccy: d.ccy, eq: +d.eq, eqUsd: +d.eqUsd || 0, avail: +(d.availEq || d.availBal || 0) })) };
     },
 
     // { SYMBOL: { bias, contracts, avgPx, markPx, upl } } for every open swap settled in `settle`.
