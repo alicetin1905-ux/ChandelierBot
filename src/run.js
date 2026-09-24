@@ -138,7 +138,7 @@ async function stepDemo({ client, st, market, now = Date.now(), cfg = config }) 
   const candidates = pickCandidates({ st, analyses, events, now, cfg }).filter(({ symbol }) => {
     if (!client.tradable || client.tradable.has(symbol)) return true;
     st.signals[symbol].wait = 'unavailable';
-    events.push({ symbol, type: 'hold', reason: `${client.instId(symbol)} isn't available to this OKX account` });
+    events.push({ symbol, type: 'hold', reason: `${client.label(symbol)} isn't available to this OKX account` });
     return false;
   });
   await exchange.openEntries({ client, st, exPos, wallet, candidates, prices, events, now, cfg });
@@ -204,9 +204,9 @@ async function checkAccount(client) {
     client.tradable = new Set();
     client.missing = [];
     for (const s of config.SYMBOLS) {
-      try { await client.getInstrument(s); client.tradable.add(s); } catch (e) { client.missing.push(client.instId(s)); }
+      try { await client.getInstrument(s); client.tradable.add(s); } catch (e) { client.missing.push(client.label(s)); }
     }
-    if (!client.tradable.size) throw new Error(`none of the bot's coins can be traded in ${config.SETTLE_CCY} on this OKX account (${client.missing.join(', ')}) — change SETTLE_CCY in config.js`);
+    if (!client.tradable.size) throw new Error(`none of the bot's coins can be traded on this OKX account as ${config.OKX_MARKET} (${client.missing.join(', ')}) — change OKX_MARKET / SETTLE_CCY in config.js`);
   }
   if (c.acctLv === 1) throw new Error('OKX account mode is "Spot" — switch the demo account to "Futures" / single-currency margin (Trade settings -> Account mode) so it can trade perpetual swaps');
   if (c.acctLv === 4) throw new Error('OKX account mode is "Portfolio margin" — switch the demo account to single- or multi-currency margin');
@@ -217,7 +217,7 @@ async function main() {
   const args = process.argv.slice(2);
   let mode = currentMode();
   const st = state.load(config);
-  let client = mode === 'okx-demo' ? await okxDemo.connect(process.env, { settle: config.SETTLE_CCY }) : null;
+  let client = mode === 'okx-demo' ? await okxDemo.connect(process.env, { settle: config.SETTLE_CCY, market: config.OKX_MARKET }) : null;
   // Keys set, but none of the bot's coins is tradable in SETTLE_CCY on this
   // account: keep paper trading instead of failing every hourly run.
   if (client && !args.includes('--check') && !args.includes('--close-all')) {
@@ -256,10 +256,10 @@ async function main() {
       const have = config.SYMBOLS.filter(sym => swaps.some(i => i.instId === okxDemo.instId(sym, ccy)));
       console.log(`  bot coins as ${ccy}-margined: ${have.length ? have.map(sym => sym.replace('USDT', '')).join(', ') : 'none'}`);
     }
-    await checkAccount(client).catch(err => console.log('Bot setting SETTLE_CCY=' + config.SETTLE_CCY + ': ' + err.message));
+    await checkAccount(client).catch(err => console.log(`Bot setting OKX_MARKET=${config.OKX_MARKET}: ${err.message}`));
     if (client.tradable && client.tradable.size) {
       const w = await client.getWallet();
-      console.log(`Bot trades ${[...client.tradable].map(sym => client.instId(sym)).join(', ')} · ${config.SETTLE_CCY} available ${w.available.toFixed(2)}`);
+      console.log(`Bot trades ${[...client.tradable].map(sym => client.label(sym)).join(', ')} · ${config.SETTLE_CCY} available ${w.available.toFixed(2)}`);
       if (client.missing.length) console.log(`Not available (skipped): ${client.missing.join(', ')}`);
       if (w.available < config.PORTFOLIO.MARGIN_USDT) console.log(`WARNING: only ${w.available.toFixed(2)} ${config.SETTLE_CCY} available — the bot can't open trades until the demo Trading account holds more`);
     }

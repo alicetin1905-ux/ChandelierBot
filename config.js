@@ -51,9 +51,14 @@ module.exports = {
   // every flip turned +29% / +54% into -36% / +40% with a much deeper drawdown.
   FLIP_EXIT: false,
 
-  // OKX demo mode: margin/settlement currency of the perps the orders go to
-  // (BTC-USDC-SWAP etc.) and of the balance the bot reads. Signals still come
-  // from the deeper USDT perps; levels carry over as % from the actual fill.
+  // OKX demo mode: which market the orders go to, and the currency of the
+  // balance the bot reads. Signals always come from the deeper USDT perps;
+  // levels carry over as % from the actual fill.
+  //   'xperp'  OKX Europe's perpetual-style futures (BTC-USD_UM_XPERP-...),
+  //            USDC-settled — for my.okx.com accounts, which have no swaps.
+  //            BTC, ETH, XRP, DOGE, HYPE only; the other coins are skipped.
+  //   'swap'   perpetual swaps settled in SETTLE_CCY (BTC-USDT-SWAP / -USDC-SWAP).
+  OKX_MARKET: 'xperp',
   SETTLE_CCY: 'USDC',
 
   // ---- Money rules (TradeBot PORTFOLIO) ----

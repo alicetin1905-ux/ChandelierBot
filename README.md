@@ -82,10 +82,13 @@ Works like TradeBot on Bybit demo (`src/exchange.js`, `src/okxDemo.js`):
   stop to breakeven once T1 fills (or closes at market if price is already
   back through entry), cancels leftover orders after a close, then fills free
   slots.
-- **USDC-margined:** orders go to the `COIN-USDC-SWAP` perps and the bot
-  reads your demo **USDC** balance (`config.js` → `SETTLE_CCY`; set it to
-  `'USDT'` for USDT perps). Signals still come from the deeper USDT perps.
-  Coins your account can't trade in USDC are skipped (the `check` lists them).
+- **Market (`config.js` → `OKX_MARKET`):** `'xperp'` (default) trades OKX
+  Europe's **X-Perps** — perpetual-style, USDC-settled linear futures
+  (`BTC-USD_UM_XPERP-…`), the only long/short market a my.okx.com account
+  has (no perpetual swaps there). Available for **BTC, ETH, XRP, DOGE, HYPE**;
+  SOL, BNB and SUI are skipped (dashboard: "not tradable on this OKX
+  account"). `'swap'` trades perpetual swaps settled in `SETTLE_CCY` instead
+  (global okx.com accounts). Signals always come from the deeper USDT perps.
 - **Sizing:** 50 at the stop, max 200 margin at 10x, cross margin (in USDC).
   The bot trades a **1000 USDC allocation** that moves with its realized
   P&L, so a demo wallet with more USDC still trades like a 1000 USDC account.
@@ -106,12 +109,13 @@ Works like TradeBot on Bybit demo (`src/exchange.js`, `src/okxDemo.js`):
    secret**, three times: `OKX_API_KEY`, `OKX_API_SECRET`, `OKX_API_PASSPHRASE`.
    Never paste the key anywhere else or commit it.
 4. **Actions → Run Chandelier bot → Run workflow → action `check`** — checks
-   the key and account mode without trading, prints the demo USDC balance
-   and which coins' USDC perps the account can trade.
+   the key and account mode without trading, and prints the demo balances,
+   what the account can trade and which contracts the bot will use.
 5. From the next hourly run the bot trades OKX demo (and says so on ntfy).
 
-If your account is on a regional OKX site, set a repository **variable**
-`OKX_API_BASE` (e.g. `https://my.okx.com`). To go back to paper, delete the
+The bot finds which OKX site knows your key (www / my / app / tr.okx.com);
+set a repository **variable** `OKX_API_BASE` (e.g. `https://my.okx.com`) to
+skip that lookup. To go back to paper, delete the
 three secrets.
 
 **Emergency stop:** *Run workflow → action `close-all`* cancels every order

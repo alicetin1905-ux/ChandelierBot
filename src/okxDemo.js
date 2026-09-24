@@ -27,16 +27,27 @@ const HINTS = {
 };
 
 // The bot names coins "BTCUSDT" etc. internally (signals come from OKX's
-// USDT perps); orders go to the perp settled in `settle` (config.SETTLE_CCY).
+// USDT perps). Orders go to one of two OKX markets (config.OKX_MARKET):
+//   'swap'   perpetual swaps settled in `settle`: BTC-USDC-SWAP
+//   'xperp'  OKX Europe's perpetual-style futures ("X-Perps", USDC-settled,
+//            linear, far-dated expiry): BTC-USD_UM_XPERP-310328, looked up
+//            per coin from the account's own instrument list.
 function instId(symbol, settle = 'USDT') { return symbol.replace('USDT', '') + '-' + settle + '-SWAP'; }
-function symbolOf(id, settle = 'USDT') { return id.replace('-' + settle + '-SWAP', 'USDT'); }
+const coinOf = (symbol) => symbol.replace('USDT', '');
+const MARKETS = {
+  swap: { instType: 'SWAP', match: (id, settle) => id.endsWith('-' + settle + '-SWAP') },
+  xperp: { instType: 'FUTURES', match: (id) => /^[A-Z0-9]+-USD_UM_XPERP-/.test(id) },
+};
 
-function createClient({ apiKey, apiSecret, passphrase, base = 'https://www.okx.com', settle = 'USDT', fetchImpl = fetch } = {}) {
+function createClient({ apiKey, apiSecret, passphrase, base = 'https://www.okx.com', settle = 'USDT', market = 'swap', fetchImpl = fetch } = {}) {
   if (!apiKey || !apiSecret || !passphrase) throw new Error('OKX demo keys missing: set OKX_API_KEY, OKX_API_SECRET and OKX_API_PASSPHRASE');
   base = base.replace(/\/+$/, '');
   let posMode = null; // 'net_mode' | 'long_short_mode'
   const instCache = {};
-  const inst = (symbol) => instId(symbol, settle);
+  const M = MARKETS[market];
+  if (!M) throw new Error(`unknown OKX market "${market}" (swap or xperp)`);
+  // Instrument id for a coin; resolved (and cached) by getInstrument().
+  const inst = async (symbol) => (await getInstrument(symbol)).instId;
 
   async function call(method, path, params) {
     let body = '';
@@ -72,6 +83,21 @@ function createClient({ apiKey, apiSecret, passphrase, base = 'https://www.okx.c
     return d.data || [];
   }
 
+  // The account's own instrument list: only what this account (region, mode) may trade.
+  async function getInstrument(symbol) {
+    if (instCache[symbol]) return instCache[symbol];
+    const notFound = (err) => { if (/OKX (51001|51000)/.test(err.message)) return []; throw err; };
+    let i;
+    if (market === 'xperp') {
+      const rows = await call('GET', '/api/v5/account/instruments', { instType: 'FUTURES', instFamily: coinOf(symbol) + '-USD_UM_XPERP' }).catch(notFound);
+      i = rows.filter(r => r.state === 'live').sort((a, b) => +b.expTime - +a.expTime)[0];
+    } else {
+      [i] = await call('GET', '/api/v5/account/instruments', { instType: 'SWAP', instId: instId(symbol, settle) }).catch(notFound);
+    }
+    if (!i) throw new Error(`${market === 'xperp' ? coinOf(symbol) + ' X-Perp' : instId(symbol, settle)} is not available to this OKX account`);
+    return (instCache[symbol] = { instId: i.instId, ctVal: +i.ctVal, lotSz: +i.lotSz, minSz: +i.minSz, tickSz: +i.tickSz, lotStr: i.lotSz, tickStr: i.tickSz, settle: i.settleCcy, maxLever: +i.lever || null });
+  }
+
   async function getConfig() {
     const [c] = await call('GET', '/api/v5/account/config');
     posMode = c.posMode;
@@ -86,7 +112,7 @@ function createClient({ apiKey, apiSecret, passphrase, base = 'https://www.okx.c
   }
 
   return {
-    sign, getConfig, settle, instId: inst,
+    sign, getConfig, settle, market,
 
     async getWallet() {
       const [b] = await call('GET', '/api/v5/account/balance', { ccy: settle });
@@ -96,16 +122,9 @@ function createClient({ apiKey, apiSecret, passphrase, base = 'https://www.okx.c
       return { equity, available };
     },
 
-    async getInstrument(symbol) {
-      if (instCache[symbol]) return instCache[symbol];
-      // The account's own list: only what this account (region, mode) may trade.
-      const [i] = await call('GET', '/api/v5/account/instruments', { instType: 'SWAP', instId: inst(symbol) }).catch((err) => {
-        if (/OKX (51001|51000)/.test(err.message)) return []; // unknown / unavailable instrument
-        throw err;
-      });
-      if (!i) throw new Error(`${inst(symbol)} is not available to this OKX account`);
-      return (instCache[symbol] = { ctVal: +i.ctVal, lotSz: +i.lotSz, minSz: +i.minSz, tickSz: +i.tickSz, lotStr: i.lotSz, tickStr: i.tickSz });
-    },
+    getInstrument,
+    // Instrument id if already resolved, else a readable label (for messages).
+    label: (symbol) => (instCache[symbol] && instCache[symbol].instId) || (market === 'xperp' ? coinOf(symbol) + '-USD_UM_XPERP' : instId(symbol, settle)),
 
     // Diagnostics for --check: every swap this account may trade, and every non-zero balance.
     async listSwaps(instType = 'SWAP') {
@@ -117,35 +136,35 @@ function createClient({ apiKey, apiSecret, passphrase, base = 'https://www.okx.c
       return { totalEq: +(b && b.totalEq || 0), details: (b && b.details || []).filter(d => +d.eq).map(d => ({ ccy: d.ccy, eq: +d.eq, eqUsd: +d.eqUsd || 0, avail: +(d.availEq || d.availBal || 0) })) };
     },
 
-    // { SYMBOL: { bias, contracts, avgPx, markPx, upl } } for every open swap settled in `settle`.
+    // { SYMBOL: { bias, contracts, avgPx, markPx, upl } } for every open position in this market.
     async getPositions() {
-      const rows = await call('GET', '/api/v5/account/positions', { instType: 'SWAP' });
+      const rows = await call('GET', '/api/v5/account/positions', { instType: M.instType });
       const out = {};
       for (const p of rows) {
         const n = +p.pos;
-        if (!n || !p.instId.endsWith('-' + settle + '-SWAP')) continue;
+        if (!n || !M.match(p.instId, settle)) continue;
         const bias = p.posSide === 'long' ? 1 : p.posSide === 'short' ? -1 : Math.sign(n);
-        out[symbolOf(p.instId, settle)] = { bias, contracts: Math.abs(n), avgPx: +p.avgPx, markPx: +p.markPx, upl: +p.upl };
+        out[p.instId.split('-')[0] + 'USDT'] = { bias, contracts: Math.abs(n), avgPx: +p.avgPx, markPx: +p.markPx, upl: +p.upl, instId: p.instId };
       }
       return out;
     },
 
     async setLeverage(symbol, lever) {
-      await call('POST', '/api/v5/account/set-leverage', { instId: inst(symbol), lever: String(lever), mgnMode: 'cross' });
+      await call('POST', '/api/v5/account/set-leverage', { instId: await inst(symbol), lever: String(lever), mgnMode: 'cross' });
     },
 
     async openMarket({ symbol, bias, contracts }) {
-      const [o] = await call('POST', '/api/v5/trade/order', { instId: inst(symbol), tdMode: 'cross', ordType: 'market', sz: String(contracts), ...(await sides(bias, false)) });
+      const [o] = await call('POST', '/api/v5/trade/order', { instId: await inst(symbol), tdMode: 'cross', ordType: 'market', sz: String(contracts), ...(await sides(bias, false)) });
       return o.ordId;
     },
 
     async closeMarket({ symbol, bias, contracts }) {
-      const [o] = await call('POST', '/api/v5/trade/order', { instId: inst(symbol), tdMode: 'cross', ordType: 'market', sz: String(contracts), ...(await sides(bias, true)) });
+      const [o] = await call('POST', '/api/v5/trade/order', { instId: await inst(symbol), tdMode: 'cross', ordType: 'market', sz: String(contracts), ...(await sides(bias, true)) });
       return o.ordId;
     },
 
     async placeTarget({ symbol, bias, contracts, px }) {
-      const [o] = await call('POST', '/api/v5/trade/order', { instId: inst(symbol), tdMode: 'cross', ordType: 'limit', px: String(px), sz: String(contracts), ...(await sides(bias, true)) });
+      const [o] = await call('POST', '/api/v5/trade/order', { instId: await inst(symbol), tdMode: 'cross', ordType: 'limit', px: String(px), sz: String(contracts), ...(await sides(bias, true)) });
       return o.ordId;
     },
 
@@ -154,25 +173,25 @@ function createClient({ apiKey, apiSecret, passphrase, base = 'https://www.okx.c
     async placeStop({ symbol, bias, triggerPx }) {
       const s = await sides(bias, true);
       const [o] = await call('POST', '/api/v5/trade/order-algo', {
-        instId: inst(symbol), tdMode: 'cross', ordType: 'conditional', closeFraction: '1',
+        instId: await inst(symbol), tdMode: 'cross', ordType: 'conditional', closeFraction: '1',
         slTriggerPx: String(triggerPx), slOrdPx: '-1', slTriggerPxType: 'last', ...s,
       });
       return o.algoId;
     },
 
     async amendStop({ symbol, algoId, triggerPx }) {
-      await call('POST', '/api/v5/trade/amend-algos', { instId: inst(symbol), algoId, newSlTriggerPx: String(triggerPx), newSlOrdPx: '-1' });
+      await call('POST', '/api/v5/trade/amend-algos', { instId: await inst(symbol), algoId, newSlTriggerPx: String(triggerPx), newSlOrdPx: '-1' });
     },
 
     async getOrder(symbol, ordId) {
-      const [o] = await call('GET', '/api/v5/trade/order', { instId: inst(symbol), ordId });
+      const [o] = await call('GET', '/api/v5/trade/order', { instId: await inst(symbol), ordId });
       return { state: o.state, avgPx: +o.avgPx || 0, filledContracts: +o.accFillSz || 0, fee: +o.fee || 0 };
     },
 
     // Cancels every pending order and stop on this coin.
     async cancelAll(symbol) {
-      const id = inst(symbol);
-      const orders = await call('GET', '/api/v5/trade/orders-pending', { instType: 'SWAP', instId: id });
+      const id = await inst(symbol);
+      const orders = await call('GET', '/api/v5/trade/orders-pending', { instType: M.instType, instId: id });
       if (orders.length) await call('POST', '/api/v5/trade/cancel-batch-orders', orders.map(o => ({ instId: id, ordId: o.ordId })));
       const algos = await call('GET', '/api/v5/trade/orders-algo-pending', { ordType: 'conditional', instId: id });
       if (algos.length) await call('POST', '/api/v5/trade/cancel-algos', algos.map(a => ({ instId: id, algoId: a.algoId })));
@@ -180,7 +199,7 @@ function createClient({ apiKey, apiSecret, passphrase, base = 'https://www.okx.c
 
     // Fills on this coin since `sinceMs` (last 3 days), oldest first.
     async getFills(symbol, sinceMs) {
-      const rows = await call('GET', '/api/v5/trade/fills', { instType: 'SWAP', instId: inst(symbol), begin: String(sinceMs), limit: '100' });
+      const rows = await call('GET', '/api/v5/trade/fills', { instType: M.instType, instId: await inst(symbol), begin: String(sinceMs), limit: '100' });
       return rows.map(f => ({
         tradeId: f.tradeId, ordId: f.ordId, px: +f.fillPx, contracts: +f.fillSz,
         pnl: +(f.fillPnl || 0), fee: +(f.fee || 0), at: +f.ts,
@@ -191,8 +210,8 @@ function createClient({ apiKey, apiSecret, passphrase, base = 'https://www.okx.c
 
 // Secrets pasted with a stray space or newline would otherwise fail as "key doesn't exist".
 const clean = (v) => (v || '').trim();
-function fromEnv(env = process.env, settle = 'USDT') {
-  return createClient({ apiKey: clean(env.OKX_API_KEY), apiSecret: clean(env.OKX_API_SECRET), passphrase: clean(env.OKX_API_PASSPHRASE), base: clean(env.OKX_API_BASE) || undefined, settle });
+function fromEnv(env = process.env, settle = 'USDT', market = 'swap') {
+  return createClient({ apiKey: clean(env.OKX_API_KEY), apiSecret: clean(env.OKX_API_SECRET), passphrase: clean(env.OKX_API_PASSPHRASE), base: clean(env.OKX_API_BASE) || undefined, settle, market });
 }
 function hasKeys(env = process.env) { return !!(clean(env.OKX_API_KEY) && clean(env.OKX_API_SECRET) && clean(env.OKX_API_PASSPHRASE)); }
 
@@ -201,8 +220,8 @@ const SITES = ['https://www.okx.com', 'https://my.okx.com', 'https://app.okx.com
 
 // Client from the environment. Without OKX_API_BASE, if www.okx.com doesn't
 // know the key (50119), tries OKX's regional sites and uses the one that does.
-async function connect(env = process.env, { log = console.log, create = createClient, settle = 'USDT' } = {}) {
-  const keys = { apiKey: clean(env.OKX_API_KEY), apiSecret: clean(env.OKX_API_SECRET), passphrase: clean(env.OKX_API_PASSPHRASE), settle };
+async function connect(env = process.env, { log = console.log, create = createClient, settle = 'USDT', market = 'swap' } = {}) {
+  const keys = { apiKey: clean(env.OKX_API_KEY), apiSecret: clean(env.OKX_API_SECRET), passphrase: clean(env.OKX_API_PASSPHRASE), settle, market };
   const fixed = clean(env.OKX_API_BASE);
   const client = create({ ...keys, base: fixed || SITES[0] });
   try {

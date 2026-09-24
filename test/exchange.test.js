@@ -166,8 +166,42 @@ test('client: orders and positions use the SETTLE_CCY perps (BTC-USDC-SWAP)', as
       return { json: async () => ({ code: '0', data }) };
     },
   });
-  assert.strictEqual(client.instId('BTCUSDT'), 'BTC-USDC-SWAP');
+  assert.strictEqual(client.label('BTCUSDT'), 'BTC-USDC-SWAP');
   assert.deepStrictEqual(Object.keys(await client.getPositions()), ['BTCUSDT']);
   assert.deepStrictEqual(await client.getWallet(), { equity: 5000, available: 4000 });
   assert.ok(urls[1].endsWith('/api/v5/account/balance?ccy=USDC'));
+});
+
+test('client (xperp): finds each coin X-Perp future and trades it', async () => {
+  const calls = [];
+  const client = okxDemo.createClient({
+    apiKey: 'k', apiSecret: 's', passphrase: 'p', settle: 'USDC', market: 'xperp',
+    fetchImpl: async (url, opts) => {
+      calls.push([opts.method, url, opts.body]);
+      let data = [];
+      if (/account\/instruments/.test(url)) {
+        data = /instFamily=BTC-USD_UM_XPERP/.test(url)
+          ? [{ instId: 'BTC-USD_UM_XPERP-300101', state: 'live', expTime: '1', ctVal: '1', lotSz: '0.0001', minSz: '0.0001', tickSz: '0.1', settleCcy: 'USDC', lever: '10' },
+            { instId: 'BTC-USD_UM_XPERP-310328', state: 'live', expTime: '2', ctVal: '1', lotSz: '0.0001', minSz: '0.0001', tickSz: '0.1', settleCcy: 'USDC', lever: '10' }]
+          : [];
+      } else if (/positions/.test(url)) {
+        data = [{ instId: 'BTC-USD_UM_XPERP-310328', pos: '-0.02', posSide: 'net', avgPx: '100', markPx: '99', upl: '1' }, { instId: 'BTC-USD_UM-260925', pos: '1', posSide: 'net', avgPx: '1', markPx: '1', upl: '0' }];
+      } else if (/account\/config/.test(url)) {
+        data = [{ posMode: 'net_mode', acctLv: '2' }];
+      } else if (/trade\/order/.test(url)) {
+        data = [{ ordId: '42', sCode: '0' }];
+      }
+      return { json: async () => ({ code: '0', data }) };
+    },
+  });
+  const i = await client.getInstrument('BTCUSDT');
+  assert.strictEqual(i.instId, 'BTC-USD_UM_XPERP-310328'); // latest-expiring live one
+  await assert.rejects(client.getInstrument('SOLUSDT'), /SOL X-Perp is not available/);
+  const pos = await client.getPositions();
+  assert.deepStrictEqual(Object.keys(pos), ['BTCUSDT']);            // dated BTC-USD_UM future ignored
+  assert.strictEqual(pos.BTCUSDT.bias, -1);
+  assert.ok(calls.some(c => /positions\?instType=FUTURES/.test(c[1])));
+  await client.openMarket({ symbol: 'BTCUSDT', bias: 1, contracts: 0.02 });
+  const body = JSON.parse(calls[calls.length - 1][2]);
+  assert.deepStrictEqual(body, { instId: 'BTC-USD_UM_XPERP-310328', tdMode: 'cross', ordType: 'market', sz: '0.02', side: 'buy' });
 });
