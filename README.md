@@ -35,7 +35,7 @@ MACD histogram (in ATRs) goes first.
 
 ## Risk, SL and TP (same as TradeBot)
 
-- One shared **1000 USDT** balance.
+- One shared **1000** balance (USDT in paper mode, USDC on OKX demo).
 - **50 USDT loss at the stop** per trade; position capped at **200 USDT margin
   at 10x** (2000 USDT), so a stop tighter than 2.5% risks less than 50.
 - **Max 5 open**, **max 3 in one direction**; a trade only opens if the full
@@ -82,13 +82,17 @@ Works like TradeBot on Bybit demo (`src/exchange.js`, `src/okxDemo.js`):
   stop to breakeven once T1 fills (or closes at market if price is already
   back through entry), cancels leftover orders after a close, then fills free
   slots.
-- **Sizing:** 50 USDT at the stop, max 200 USDT margin at 10x, cross margin.
-  The bot trades a **1000 USDT allocation** that moves with its realized
-  P&L, so a demo wallet with more USDT still trades like a 1000 USDT account.
-  Every open USDT swap on the account counts toward the 5 slots, including
+- **USDC-margined:** orders go to the `COIN-USDC-SWAP` perps and the bot
+  reads your demo **USDC** balance (`config.js` → `SETTLE_CCY`; set it to
+  `'USDT'` for USDT perps). Signals still come from the deeper USDT perps.
+  Coins your account can't trade in USDC are skipped (the `check` lists them).
+- **Sizing:** 50 at the stop, max 200 margin at 10x, cross margin (in USDC).
+  The bot trades a **1000 USDC allocation** that moves with its realized
+  P&L, so a demo wallet with more USDC still trades like a 1000 USDC account.
+  Every open USDC swap on the account counts toward the 5 slots, including
   ones the bot didn't open (it leaves those alone) — best give the bot its
   own demo (sub-)account.
-- Switching between paper and OKX demo starts a fresh 1000 USDT account.
+- Switching between paper and OKX demo starts a fresh 1000 account.
 
 ### Setup
 
@@ -102,7 +106,8 @@ Works like TradeBot on Bybit demo (`src/exchange.js`, `src/okxDemo.js`):
    secret**, three times: `OKX_API_KEY`, `OKX_API_SECRET`, `OKX_API_PASSPHRASE`.
    Never paste the key anywhere else or commit it.
 4. **Actions → Run Chandelier bot → Run workflow → action `check`** — checks
-   the key and account mode without trading and prints the demo balance.
+   the key and account mode without trading, prints the demo USDC balance
+   and which coins' USDC perps the account can trade.
 5. From the next hourly run the bot trades OKX demo (and says so on ntfy).
 
 If your account is on a regional OKX site, set a repository **variable**
@@ -111,7 +116,7 @@ three secrets.
 
 **Emergency stop:** *Run workflow → action `close-all`* cancels every order
 and market-closes every position on the bot's coins. *Reset Chandelier bot*
-does the same before resetting to 1000 USDT.
+does the same before resetting to 1000.
 
 ## Phone alerts (ntfy)
 
@@ -159,7 +164,7 @@ src/exchange.js      OKX demo executor: reconcile fills, breakeven, entries, clo
 src/okxDemo.js       signed OKX v5 client, demo header always on
 src/notify.js        ntfy pushes
 src/state.js         state/*.json
-src/reset.js         back to 1000 USDT
+src/reset.js         back to the 1000 starting balance
 src/indicators.js    indicator math (CE, ZLSMA, MACD, ATR, ...) from ATLAS
 src/okx.js           OKX public REST client (no API key)
 scripts/backtest.js  hour-by-hour replay over OKX history

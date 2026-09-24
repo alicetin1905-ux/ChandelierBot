@@ -51,6 +51,11 @@ module.exports = {
   // every flip turned +29% / +54% into -36% / +40% with a much deeper drawdown.
   FLIP_EXIT: false,
 
+  // OKX demo mode: margin/settlement currency of the perps the orders go to
+  // (BTC-USDC-SWAP etc.) and of the balance the bot reads. Signals still come
+  // from the deeper USDT perps; levels carry over as % from the actual fill.
+  SETTLE_CCY: 'USDC',
+
   // ---- Money rules (TradeBot PORTFOLIO) ----
   PORTFOLIO: {
     STARTING_BALANCE: 1000, // USDT, one shared balance for all coins

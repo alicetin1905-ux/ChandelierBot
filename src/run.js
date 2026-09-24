@@ -135,7 +135,12 @@ async function stepDemo({ client, st, market, now = Date.now(), cfg = config }) 
   const wallet = await client.getWallet();
   const exPos = await client.getPositions();
   await exchange.reconcile({ client, st, exPos, analyses, events, now, cfg });
-  const candidates = pickCandidates({ st, analyses, events, now, cfg });
+  const candidates = pickCandidates({ st, analyses, events, now, cfg }).filter(({ symbol }) => {
+    if (!client.tradable || client.tradable.has(symbol)) return true;
+    st.signals[symbol].wait = 'unavailable';
+    events.push({ symbol, type: 'hold', reason: `${client.instId(symbol)} isn't available to this OKX account` });
+    return false;
+  });
   await exchange.openEntries({ client, st, exPos, wallet, candidates, prices, events, now, cfg });
   st.account.exchangeEquity = wallet.equity;
   equityPoint(st, prices, now);
@@ -194,6 +199,15 @@ function currentMode() { return okxDemo.hasKeys() ? 'okx-demo' : 'paper'; }
 // don't trade in "Spot" mode) and not Portfolio margin (no close-all stops there).
 async function checkAccount(client) {
   const c = client.config || await client.getConfig();
+  // Which of the bot's coins this account can trade in SETTLE_CCY.
+  if (!client.tradable) {
+    client.tradable = new Set();
+    client.missing = [];
+    for (const s of config.SYMBOLS) {
+      try { await client.getInstrument(s); client.tradable.add(s); } catch (e) { client.missing.push(client.instId(s)); }
+    }
+    if (!client.tradable.size) throw new Error(`none of the bot's coins can be traded in ${config.SETTLE_CCY} on this OKX account (${client.missing.join(', ')}) — change SETTLE_CCY in config.js`);
+  }
   if (c.acctLv === 1) throw new Error('OKX account mode is "Spot" — switch the demo account to "Futures" / single-currency margin (Trade settings -> Account mode) so it can trade perpetual swaps');
   if (c.acctLv === 4) throw new Error('OKX account mode is "Portfolio margin" — switch the demo account to single- or multi-currency margin');
   return c;
@@ -203,7 +217,7 @@ async function main() {
   const args = process.argv.slice(2);
   const mode = currentMode();
   const st = state.load(config);
-  const client = mode === 'okx-demo' ? await okxDemo.connect() : null;
+  const client = mode === 'okx-demo' ? await okxDemo.connect(process.env, { settle: config.SETTLE_CCY }) : null;
 
   if (args.includes('--check')) {
     if (!client) { console.log('No OKX demo keys set — the bot runs in paper mode.'); return; }
@@ -211,7 +225,10 @@ async function main() {
     const w = await client.getWallet();
     const pos = await client.getPositions();
     console.log(`OKX demo OK on ${client.site} · account mode ${c.acctLv} · position mode ${c.posMode}`);
-    console.log(`USDT equity ${w.equity.toFixed(2)} · available ${w.available.toFixed(2)}`);
+    console.log(`${config.SETTLE_CCY} equity ${w.equity.toFixed(2)} · available ${w.available.toFixed(2)}`);
+    console.log(`Tradable: ${[...client.tradable].map(s => client.instId(s)).join(', ')}`);
+    if (client.missing.length) console.log(`Not available to this account (skipped): ${client.missing.join(', ')}`);
+    if (w.available < config.PORTFOLIO.MARGIN_USDT) console.log(`WARNING: only ${w.available.toFixed(2)} ${config.SETTLE_CCY} available — add demo ${config.SETTLE_CCY} to the Trading account or the bot can't open trades`);
     console.log(`Open swap positions: ${Object.keys(pos).length ? Object.entries(pos).map(([s, p]) => `${s} ${p.bias === 1 ? 'long' : 'short'} ${p.contracts}`).join(', ') : 'none'}`);
     return;
   }
@@ -233,7 +250,7 @@ async function main() {
   if ((st.account.mode || 'paper') !== mode) {
     const fresh = state.freshAccount(config);
     Object.assign(st, { account: { ...fresh, mode }, positions: {}, trades: [], used: {}, equity: [], closing: {}, seenTrades: [] });
-    await notify.push([{ title: `Chandelier bot now in ${mode === 'okx-demo' ? 'OKX DEMO' : 'PAPER'} mode`, message: `Fresh ${config.PORTFOLIO.STARTING_BALANCE} USDT account.${mode === 'okx-demo' ? ' Orders go to your OKX demo account.' : ''}`, tags: ['gear'] }]);
+    await notify.push([{ title: `Chandelier bot now in ${mode === 'okx-demo' ? 'OKX DEMO' : 'PAPER'} mode`, message: `Fresh ${config.PORTFOLIO.STARTING_BALANCE} ${mode === 'okx-demo' ? config.SETTLE_CCY : 'USDT'} account.${mode === 'okx-demo' ? ` Orders go to your OKX demo account (${config.SETTLE_CCY}-margined perps).` : ''}`, tags: ['gear'] }]);
   }
 
   const fetchEvents = [];

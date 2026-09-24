@@ -153,3 +153,21 @@ test('connect: finds the regional OKX site that knows the key', async () => {
   const none = ({ base }) => ({ base, getConfig: async () => { throw new Error('OKX 50119: API key doesn\'t exist'); } });
   await assert.rejects(okxDemo.connect({ OKX_API_KEY: 'k', OKX_API_SECRET: 's', OKX_API_PASSPHRASE: 'p' }, { create: none }), /tried https:\/\/www.okx.com, https:\/\/my.okx.com, https:\/\/app.okx.com, https:\/\/tr.okx.com/);
 });
+
+test('client: orders and positions use the SETTLE_CCY perps (BTC-USDC-SWAP)', async () => {
+  const urls = [];
+  const client = okxDemo.createClient({
+    apiKey: 'k', apiSecret: 's', passphrase: 'p', settle: 'USDC',
+    fetchImpl: async (url) => {
+      urls.push(url);
+      const data = /positions/.test(url)
+        ? [{ instId: 'BTC-USDC-SWAP', pos: '2', posSide: 'net', avgPx: '100', markPx: '101', upl: '2' }, { instId: 'ETH-USDT-SWAP', pos: '1', posSide: 'net', avgPx: '1', markPx: '1', upl: '0' }]
+        : [{ details: [{ ccy: 'USDC', eq: '5000', availEq: '4000' }] }];
+      return { json: async () => ({ code: '0', data }) };
+    },
+  });
+  assert.strictEqual(client.instId('BTCUSDT'), 'BTC-USDC-SWAP');
+  assert.deepStrictEqual(Object.keys(await client.getPositions()), ['BTCUSDT']);
+  assert.deepStrictEqual(await client.getWallet(), { equity: 5000, available: 4000 });
+  assert.ok(urls[1].endsWith('/api/v5/account/balance?ccy=USDC'));
+});
