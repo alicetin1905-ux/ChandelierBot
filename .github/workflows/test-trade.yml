@@ -1,0 +1,32 @@
+name: OKX demo test trade
+
+# One small BTC round-trip on the OKX demo account (scripts/test-trade.js):
+# market entry, stop, T1/T2/T3 limits, stop to breakeven, cancel, close.
+# Doesn't touch the bot's state.
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chandelier-bot-run
+  cancel-in-progress: false
+
+jobs:
+  test-trade:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Test trade on OKX demo
+        env:
+          OKX_API_KEY: ${{ secrets.OKX_API_KEY }}
+          OKX_API_SECRET: ${{ secrets.OKX_API_SECRET }}
+          OKX_API_PASSPHRASE: ${{ secrets.OKX_API_PASSPHRASE }}
+          OKX_API_BASE: ${{ vars.OKX_API_BASE }}
+        run: node scripts/test-trade.js BTCUSDT 100
