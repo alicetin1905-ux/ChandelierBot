@@ -215,9 +215,19 @@ async function checkAccount(client) {
 
 async function main() {
   const args = process.argv.slice(2);
-  const mode = currentMode();
+  let mode = currentMode();
   const st = state.load(config);
-  const client = mode === 'okx-demo' ? await okxDemo.connect(process.env, { settle: config.SETTLE_CCY }) : null;
+  let client = mode === 'okx-demo' ? await okxDemo.connect(process.env, { settle: config.SETTLE_CCY }) : null;
+  // Keys set, but none of the bot's coins is tradable in SETTLE_CCY on this
+  // account: keep paper trading instead of failing every hourly run.
+  if (client && !args.includes('--check') && !args.includes('--close-all')) {
+    try { await checkAccount(client); } catch (err) {
+      if (!/none of the bot's coins/.test(err.message)) throw err;
+      console.log(`OKX demo not usable yet (${err.message}) — paper trading this run`);
+      client = null;
+      mode = 'paper';
+    }
+  }
 
   if (args.includes('--check')) {
     if (!client) { console.log('No OKX demo keys set — the bot runs in paper mode.'); return; }
