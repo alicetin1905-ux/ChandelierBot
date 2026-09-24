@@ -1,0 +1,39 @@
+name: Reset Chandelier bot
+
+on:
+  workflow_dispatch:
+    inputs:
+      clear_history:
+        description: 'Also wipe the closed-trade history'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: chandelier-bot-run
+  cancel-in-progress: false
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Reset to the starting balance
+        run: node src/reset.js ${{ inputs.clear_history && '--clear-history' || '' }}
+
+      - name: Commit reset state
+        run: |
+          git config user.name "chandelier-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add state/
+          git diff --cached --quiet && echo "no state changes" && exit 0
+          git commit -m "Reset Chandelier bot"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push

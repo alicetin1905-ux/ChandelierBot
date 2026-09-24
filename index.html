@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Chandelier Bot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* Same palette as the UltimateTradingBot dashboard; --bot is this page's own colour. */
+  :root{
+    --bg:#070a09; --panel:#0e1412; --panel2:#121a17; --border:#1b2320;
+    --text-primary:#eef3f0; --text-secondary:#93a49c; --text-tertiary:#5c6b64;
+    --up:#35ffb0; --down:#ff4d6a; --warn:#ffc857; --bot:#ffb86b;
+    --mono:'JetBrains Mono','SF Mono',Consolas,monospace;
+    --sans:'Inter',system-ui,sans-serif;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; min-height:100%; background:var(--bg); color:var(--text-primary); font-family:var(--sans); -webkit-font-smoothing:antialiased; }
+  body{ padding:16px 16px max(16px, env(safe-area-inset-bottom)); padding-top:max(16px, env(safe-area-inset-top)); max-width:980px; margin:0 auto; }
+  .head{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:4px; }
+  .head h1{ margin:0; font-size:18px; letter-spacing:0.02em; }
+  .head h1 span{ color:var(--bot); }
+  .sub{ font-family:var(--mono); font-size:11px; color:var(--text-tertiary); letter-spacing:0.04em; text-transform:uppercase; }
+  .banner{ margin:12px 0 16px; padding:9px 12px; border-radius:10px; background:rgba(255,184,107,0.07); border:1px solid rgba(255,184,107,0.25); color:var(--text-secondary); font-size:11.5px; line-height:1.5; }
+  .banner b{ color:var(--bot); }
+  .card{ background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:14px 16px; margin-bottom:14px; }
+  .stats{ display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:14px; }
+  .label{ font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:var(--text-tertiary); margin-bottom:4px; }
+  .value{ font-family:var(--mono); font-size:22px; font-weight:700; }
+  .value.big{ font-size:28px; }
+  .small{ font-family:var(--mono); font-size:11.5px; color:var(--text-secondary); margin-top:2px; }
+  .up{ color:var(--up); } .down{ color:var(--down); } .flat{ color:var(--text-secondary); } .warn{ color:var(--warn); }
+  svg.chart{ width:100%; height:120px; display:block; margin-top:10px; }
+  h2{ font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:var(--text-tertiary); margin:20px 0 8px; font-weight:600; }
+  .grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); gap:10px; }
+  .coin{ background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:12px; }
+  .coin .top{ display:flex; justify-content:space-between; align-items:baseline; }
+  .coin .sym{ font-weight:700; font-size:14px; }
+  .coin .px{ font-family:var(--mono); font-size:12px; color:var(--text-secondary); }
+  .chips{ display:flex; gap:5px; margin:8px 0 6px; flex-wrap:wrap; }
+  .chip{ font-family:var(--mono); font-size:10.5px; padding:2px 7px; border-radius:6px; border:1px solid var(--border); background:var(--panel2); color:var(--text-secondary); }
+  .chip.ok{ color:var(--up); border-color:rgba(53,255,176,0.3); }
+  .chip.no{ color:var(--down); border-color:rgba(255,77,106,0.3); }
+  .chip.dirL{ color:var(--up); } .chip.dirS{ color:var(--down); }
+  .coin .why{ font-size:11px; color:var(--text-tertiary); line-height:1.4; }
+  .coin .why b{ color:var(--bot); font-weight:600; }
+  table{ width:100%; border-collapse:collapse; font-family:var(--mono); font-size:11.5px; }
+  th{ text-align:left; font-weight:500; color:var(--text-tertiary); font-size:10px; letter-spacing:0.08em; text-transform:uppercase; padding:6px 6px; border-bottom:1px solid var(--border); }
+  td{ padding:7px 6px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  tr:last-child td{ border-bottom:0; }
+  .tableWrap{ overflow-x:auto; padding:4px 10px; }
+  .empty{ color:var(--text-tertiary); font-size:12px; padding:10px 6px; }
+  .footer{ display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-top:18px; font-size:11px; color:var(--text-tertiary); }
+  .footer a{ color:var(--bot); text-decoration:none; }
+  button{ font:inherit; font-size:12px; background:var(--panel2); color:var(--text-primary); border:1px solid var(--border); border-radius:8px; padding:6px 12px; cursor:pointer; }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1><span>Chandelier</span> Bot</h1>
+  <div class="sub">CE 4/2 · ZLSMA 38 · MACD 5/35/5 · 4H</div>
+</div>
+<div class="banner">
+  <b>Paper trading only</b> — OKX public prices, simulated fills, no exchange account. Entry on a 4H Chandelier Exit flip confirmed by close vs ZLSMA 38 and MACD 5/35/5; TradeBot's money rules: $1,000 shared, $50 loss at the stop (max $200 margin at 10x), T1/T2/T3 at 1.5/3/4.5R (40/35/25%), breakeven after T1, max 5 open / 3 per side.
+</div>
+
+<div class="card">
+  <div class="stats">
+    <div><div class="label">Equity</div><div class="value big" id="equity">—</div><div class="small" id="equityPct"></div></div>
+    <div><div class="label">Balance</div><div class="value" id="balance">—</div><div class="small" id="started"></div></div>
+    <div><div class="label">Open P&amp;L</div><div class="value" id="upnl">—</div><div class="small" id="slots"></div></div>
+    <div><div class="label">Closed trades</div><div class="value" id="winrate">—</div><div class="small" id="wl"></div></div>
+  </div>
+  <svg class="chart" id="chart" viewBox="0 0 600 120" preserveAspectRatio="none" aria-label="Equity over time"></svg>
+</div>
+
+<h2>Signals</h2>
+<div class="grid" id="signals"><div class="empty">Loading…</div></div>
+
+<h2>Open positions</h2>
+<div class="card tableWrap" id="positions"><div class="empty">Loading…</div></div>
+
+<h2>Recent trades</h2>
+<div class="card tableWrap" id="trades"><div class="empty">Loading…</div></div>
+
+<div class="footer">
+  <div id="updated">—</div>
+  <div>
+    <a href="https://ntfy.sh/chandelierbot-q7m3xk9vte2p" target="_blank" rel="noopener">ntfy alerts</a> ·
+    <a href="https://github.com/alicetin1905-ux/ChandelierBot/actions/workflows/reset.yml" target="_blank" rel="noopener">Reset</a>
+    <button type="button" id="refresh">Refresh</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var RAW = 'https://raw.githubusercontent.com/alicetin1905-ux/ChandelierBot/main/state/';
+  var SYMBOLS = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT', 'BNBUSDT', 'DOGEUSDT', 'HYPEUSDT', 'SUIUSDT'];
+  var MAX_OPEN = 5, CONFIRM_BARS = 3;
+  var WAIT = {
+    noflip: 'waiting for the next Chandelier flip',
+    confirm: 'flip is fresh — waiting for ZLSMA / MACD to confirm',
+    used: 'this flip was already traded',
+    stale: 'signal came too long after the 4H close',
+    daily: 'daily loss limit reached',
+    slots: 'all 5 slots in use',
+    direction: 'already 3 trades in this direction',
+    margin: 'not enough free margin',
+  };
+  var $ = function (id) { return document.getElementById(id); };
+  var coin = function (s) { return s.replace('USDT', ''); };
+
+  function money(x) { return (x < 0 ? '-$' : '$') + Math.abs(x).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function signed(x) { return (x >= 0 ? '+' : '-') + '$' + Math.abs(x).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function cls(x) { return x > 0.005 ? 'up' : x < -0.005 ? 'down' : 'flat'; }
+  function px(x) {
+    if (x == null) return '—';
+    var a = Math.abs(x), dp = a >= 1000 ? 1 : a >= 100 ? 2 : a >= 1 ? 3 : 5;
+    return (+x).toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp });
+  }
+  function ago(ts) {
+    if (!ts) return '—';
+    var s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 60) return s + 's ago'; if (s < 3600) return Math.floor(s / 60) + 'm ago';
+    if (s < 86400) return Math.floor(s / 3600) + 'h ago'; return Math.floor(s / 86400) + 'd ago';
+  }
+  function when(ts) { var d = new Date(ts); return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  async function get(name, fallback) {
+    try {
+      var r = await fetch(RAW + name + '.json?_=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) throw new Error(r.status);
+      return await r.json();
+    } catch (e) { return fallback; }
+  }
+  async function marks(symbols) {
+    var out = {};
+    await Promise.all(symbols.map(async function (s) {
+      try {
+        var r = await fetch('https://www.okx.com/api/v5/public/mark-price?instType=SWAP&instId=' + coin(s) + '-USDT-SWAP', { cache: 'no-store' });
+        var d = await r.json();
+        if (d.code === '0' && d.data[0]) out[s] = +d.data[0].markPx;
+      } catch (e) {}
+    }));
+    return out;
+  }
+
+  function chart(points) {
+    var svg = $('chart');
+    if (!points || points.length < 2) { svg.innerHTML = ''; return; }
+    var ys = points.map(function (p) { return p[2]; });
+    var lo = Math.min.apply(null, ys), hi = Math.max.apply(null, ys);
+    if (hi - lo < 1) { hi += 1; lo -= 1; }
+    var t0 = points[0][0], t1 = points[points.length - 1][0] || t0 + 1;
+    var X = function (t) { return ((t - t0) / (t1 - t0 || 1)) * 600; };
+    var Y = function (v) { return 112 - ((v - lo) / (hi - lo)) * 104; };
+    var d = points.map(function (p, i) { return (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ' ' + Y(p[2]).toFixed(1); }).join(' ');
+    var up = ys[ys.length - 1] >= ys[0];
+    var col = up ? 'var(--up)' : 'var(--down)';
+    svg.innerHTML =
+      '<path d="' + d + ' L600 120 L0 120 Z" fill="' + col + '" opacity="0.08"/>' +
+      '<path d="' + d + '" fill="none" stroke="' + col + '" stroke-width="2" vector-effect="non-scaling-stroke"/>';
+  }
+
+  function renderSignals(signals, positions) {
+    $('signals').innerHTML = SYMBOLS.map(function (s) {
+      var g = signals[s];
+      if (!g) return '<div class="coin"><div class="top"><div class="sym">' + coin(s) + '</div></div><div class="why">no data yet</div></div>';
+      var long = g.bias === 1, pos = positions[s];
+      var chips =
+        '<span class="chip ' + (long ? 'dirL' : 'dirS') + '">CE ' + (long ? 'BUY' : 'SELL') + ' · ' + g.barsSinceFlip + ' bar' + (g.barsSinceFlip === 1 ? '' : 's') + '</span>' +
+        '<span class="chip ' + (g.zlsmaOk ? 'ok' : 'no') + '">ZLSMA ' + (g.zlsmaOk ? '✓' : '✗') + '</span>' +
+        '<span class="chip ' + (g.macdOk ? 'ok' : 'no') + '">MACD ' + (g.macdOk ? '✓' : '✗') + '</span>';
+      var why;
+      if (pos) why = '<b>' + (pos.bias === 1 ? 'LONG' : 'SHORT') + ' open</b> @ ' + px(pos.entry);
+      else if (g.ready && !g.wait) why = '<b>entry signal</b>';
+      else why = esc(WAIT[g.wait] || (g.barsSinceFlip > CONFIRM_BARS ? WAIT.noflip : WAIT.confirm));
+      return '<div class="coin"><div class="top"><div class="sym">' + coin(s) + '</div><div class="px">' + px(g.price) + '</div></div>' +
+        '<div class="chips">' + chips + '</div>' +
+        '<div class="why">' + why + '<br>ZLSMA ' + px(g.zlsma) + ' · CE stop ' + px(g.ceStop) + '</div></div>';
+    }).join('');
+  }
+
+  function renderPositions(positions, live) {
+    var list = Object.values(positions);
+    if (!list.length) { $('positions').innerHTML = '<div class="empty">No open positions.</div>'; return; }
+    $('positions').innerHTML = '<table><tr><th>Coin</th><th>Side</th><th>Entry</th><th>Now</th><th>P&amp;L</th><th>SL</th><th>T1</th><th>T2</th><th>T3</th><th>Margin</th><th>Opened</th></tr>' +
+      list.map(function (p) {
+        var m = live[p.symbol], u = m != null ? (m - p.entry) * p.bias * p.qtyRemaining : null;
+        var tick = function (k) { return p.filled[k] ? ' ✓' : ''; };
+        return '<tr><td>' + coin(p.symbol) + '</td><td class="' + (p.bias === 1 ? 'up' : 'down') + '">' + (p.bias === 1 ? 'LONG' : 'SHORT') + '</td>' +
+          '<td>' + px(p.entry) + '</td><td>' + px(m) + '</td>' +
+          '<td class="' + (u == null ? 'flat' : cls(u)) + '">' + (u == null ? '—' : signed(u) + ' (' + (u / p.margin * 100).toFixed(1) + '%)') + '</td>' +
+          '<td>' + px(p.stop) + (p.breakeven ? ' <span class="warn">BE</span>' : '') + '</td>' +
+          '<td>' + px(p.t1) + tick('t1') + '</td><td>' + px(p.t2) + tick('t2') + '</td><td>' + px(p.t3) + tick('t3') + '</td>' +
+          '<td>' + money(p.margin) + '</td><td>' + ago(p.openedAt) + '</td></tr>';
+      }).join('') + '</table>';
+  }
+
+  function grouped(trades) {
+    var g = {};
+    trades.forEach(function (t) {
+      var k = t.symbol + ':' + t.openedAt;
+      if (!g[k]) g[k] = { symbol: t.symbol, bias: t.bias, entry: t.entry, openedAt: t.openedAt, closedAt: 0, pnl: 0, fee: 0, exits: [] };
+      g[k].pnl += t.pnl; g[k].fee += t.fee || 0; g[k].closedAt = Math.max(g[k].closedAt, t.closedAt); g[k].exits.push(t.reason.split(',')[0]);
+    });
+    return Object.values(g).sort(function (a, b) { return b.closedAt - a.closedAt; });
+  }
+
+  function renderTrades(trades, positions) {
+    var closed = grouped(trades).filter(function (t) { return !positions[t.symbol] || positions[t.symbol].openedAt !== t.openedAt; });
+    var wins = closed.filter(function (t) { return t.pnl > 0.005; }).length, losses = closed.filter(function (t) { return t.pnl < -0.005; }).length;
+    $('winrate').textContent = closed.length ? Math.round(wins / closed.length * 100) + '% win' : '—';
+    $('wl').textContent = closed.length ? wins + 'W / ' + losses + 'L · ' + closed.length + ' trades' : 'no closed trades yet';
+    if (!closed.length) { $('trades').innerHTML = '<div class="empty">No closed trades yet.</div>'; return; }
+    $('trades').innerHTML = '<table><tr><th>Closed</th><th>Coin</th><th>Side</th><th>Entry</th><th>Exits</th><th>P&amp;L</th><th>Fees</th></tr>' +
+      closed.slice(0, 40).map(function (t) {
+        return '<tr><td>' + when(t.closedAt) + '</td><td>' + coin(t.symbol) + '</td><td class="' + (t.bias === 1 ? 'up' : 'down') + '">' + (t.bias === 1 ? 'LONG' : 'SHORT') + '</td>' +
+          '<td>' + px(t.entry) + '</td><td>' + esc(t.exits.join(' → ')) + '</td><td class="' + cls(t.pnl) + '">' + signed(t.pnl) + '</td><td class="flat">' + money(t.fee) + '</td></tr>';
+      }).join('') + '</table>';
+  }
+
+  async function load() {
+    var r = await Promise.all([get('account', null), get('positions', {}), get('trades', []), get('signals', {}), get('equity', [])]);
+    var account = r[0], positions = r[1], trades = r[2], signals = r[3], equity = r[4];
+    if (!account) { $('updated').textContent = 'No state yet — the first hourly run hasn\'t happened.'; }
+    var live = await marks(Object.keys(positions));
+    var upnl = Object.values(positions).reduce(function (s, p) { return s + (live[p.symbol] != null ? (live[p.symbol] - p.entry) * p.bias * p.qtyRemaining : 0); }, 0);
+    if (account) {
+      var eq = account.balance + upnl, pct = (eq / account.startingBalance - 1) * 100;
+      $('equity').textContent = money(eq);
+      $('equityPct').innerHTML = '<span class="' + cls(pct) + '">' + (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%</span> since start';
+      $('balance').textContent = money(account.balance);
+      $('started').textContent = 'started ' + money(account.startingBalance);
+      $('updated').textContent = 'Last bot run ' + ago(account.updatedAt);
+    }
+    $('upnl').textContent = signed(upnl); $('upnl').className = 'value ' + cls(upnl);
+    $('slots').textContent = Object.keys(positions).length + '/' + MAX_OPEN + ' slots used';
+    chart(equity);
+    renderSignals(signals, positions);
+    renderPositions(positions, live);
+    renderTrades(trades, positions);
+  }
+
+  $('refresh').addEventListener('click', load);
+  load();
+  setInterval(load, 60000);
+})();
+</script>
+</body>
+</html>

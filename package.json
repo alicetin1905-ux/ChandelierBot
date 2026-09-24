@@ -1,0 +1,17 @@
+{
+  "name": "chandelier-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Paper-trading bot: Chandelier Exit (4/2) + ZLSMA 38 + MACD 5/35/5 on 4H, with TradeBot's risk/SL/TP rules and its own ntfy alerts.",
+  "main": "src/run.js",
+  "scripts": {
+    "start": "node src/run.js",
+    "test": "node --test test/*.test.js",
+    "backtest": "node scripts/backtest.js",
+    "reset": "node src/reset.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED"
+}

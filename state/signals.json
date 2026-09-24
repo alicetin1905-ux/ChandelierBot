@@ -1,0 +1,170 @@
+{
+  "BTCUSDT": {
+    "bias": -1,
+    "ready": false,
+    "flipAt": 1790164800000,
+    "barsSinceFlip": 5,
+    "zlsmaOk": true,
+    "macdOk": true,
+    "close": 83449.4,
+    "zlsma": 84308.67934239225,
+    "macd": {
+      "line": 880.6141995251819,
+      "signal": 1464.757722021497,
+      "hist": -584.1435224963152
+    },
+    "ceStop": 85719.88910919815,
+    "atr": 1060.9987731383937,
+    "closedAt": 1790236800000,
+    "price": 84133.3,
+    "at": 1790258468980,
+    "wait": "noflip"
+  },
+  "ETHUSDT": {
+    "bias": -1,
+    "ready": false,
+    "flipAt": 1790164800000,
+    "barsSinceFlip": 5,
+    "zlsmaOk": true,
+    "macdOk": true,
+    "close": 2646.25,
+    "zlsma": 2648.2269614319143,
+    "macd": {
+      "line": 12.430982952533668,
+      "signal": 30.78502927165765,
+      "hist": -18.35404631912398
+    },
+    "ceStop": 2738.8063265491546,
+    "atr": 45.070151767051755,
+    "closedAt": 1790236800000,
+    "price": 2666.76,
+    "at": 1790258468980,
+    "wait": "noflip"
+  },
+  "SOLUSDT": {
+    "bias": -1,
+    "ready": false,
+    "flipAt": 1790164800000,
+    "barsSinceFlip": 5,
+    "zlsmaOk": false,
+    "macdOk": true,
+    "close": 113.3,
+    "zlsma": 112.58481715812435,
+    "macd": {
+      "line": 1.4344944936070192,
+      "signal": 2.3655303686308833,
+      "hist": -0.9310358750238641
+    },
+    "ceStop": 118.01645847419144,
+    "atr": 2.2683702089144675,
+    "closedAt": 1790236800000,
+    "price": 114.79,
+    "at": 1790258468980,
+    "wait": "noflip"
+  },
+  "XRPUSDT": {
+    "bias": -1,
+    "ready": false,
+    "flipAt": 1790164800000,
+    "barsSinceFlip": 5,
+    "zlsmaOk": true,
+    "macdOk": true,
+    "close": 1.4688,
+    "zlsma": 1.5262231195397395,
+    "macd": {
+      "line": 0.018269155885975774,
+      "signal": 0.04082368392975811,
+      "hist": -0.022554528043782336
+    },
+    "ceStop": 1.5582987435864508,
+    "atr": 0.04343353537997028,
+    "closedAt": 1790236800000,
+    "price": 1.4991,
+    "at": 1790258468980,
+    "wait": "noflip"
+  },
+  "BNBUSDT": {
+    "bias": -1,
+    "ready": false,
+    "flipAt": 1790164800000,
+    "barsSinceFlip": 5,
+    "zlsmaOk": false,
+    "macdOk": true,
+    "close": 769.5,
+    "zlsma": 764.5371469783146,
+    "macd": {
+      "line": 1.168342744565848,
+      "signal": 3.528688692165303,
+      "hist": -2.360345947599455
+    },
+    "ceStop": 783.2807977966785,
+    "atr": 11.800092640440662,
+    "closedAt": 1790236800000,
+    "price": 776.6,
+    "at": 1790258468980,
+    "wait": "noflip"
+  },
+  "DOGEUSDT": {
+    "bias": -1,
+    "ready": false,
+    "flipAt": 1790164800000,
+    "barsSinceFlip": 5,
+    "zlsmaOk": true,
+    "macdOk": true,
+    "close": 0.09267,
+    "zlsma": 0.09599910439443378,
+    "macd": {
+      "line": 0.0007905027492190325,
+      "signal": 0.0020725950087061244,
+      "hist": -0.0012820922594870918
+    },
+    "ceStop": 0.09807273769479147,
+    "atr": 0.0031117828352989585,
+    "closedAt": 1790236800000,
+    "price": 0.09412,
+    "at": 1790258468980,
+    "wait": "noflip"
+  },
+  "HYPEUSDT": {
+    "bias": -1,
+    "ready": false,
+    "flipAt": 1790164800000,
+    "barsSinceFlip": 5,
+    "zlsmaOk": false,
+    "macdOk": true,
+    "close": 90.932,
+    "zlsma": 89.57388681997723,
+    "macd": {
+      "line": 0.5165536003554934,
+      "signal": 1.524930852254191,
+      "hist": -1.0083772518986975
+    },
+    "ceStop": 96.36570194594084,
+    "atr": 2.298887862886623,
+    "closedAt": 1790236800000,
+    "price": 92.471,
+    "at": 1790258468980,
+    "wait": "noflip"
+  },
+  "SUIUSDT": {
+    "bias": -1,
+    "ready": false,
+    "flipAt": 1790164800000,
+    "barsSinceFlip": 5,
+    "zlsmaOk": true,
+    "macdOk": true,
+    "close": 0.9519,
+    "zlsma": 0.9790055303315879,
+    "macd": {
+      "line": 0.03128551761181486,
+      "signal": 0.04640979160915004,
+      "hist": -0.01512427399733518
+    },
+    "ceStop": 1.0171598279462108,
+    "atr": 0.03584528176298185,
+    "closedAt": 1790236800000,
+    "price": 0.9877,
+    "at": 1790258468980,
+    "wait": "noflip"
+  }
+}

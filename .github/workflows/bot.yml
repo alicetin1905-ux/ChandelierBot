@@ -1,0 +1,40 @@
+name: Run Chandelier bot
+
+on:
+  schedule:
+    # Every hour at :07 — after each 1H candle closes (and each 4H close at
+    # 00/04/08/12/16/20 UTC, when new entries are decided).
+    - cron: '7 * * * *'
+  workflow_dispatch: {}
+
+# Needed so the job can commit the updated state/*.json back to the repo.
+permissions:
+  contents: write
+
+# Runs and resets never overlap, so their state commits never race.
+concurrency:
+  group: chandelier-bot-run
+  cancel-in-progress: false
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run Chandelier bot
+        run: node src/run.js
+
+      - name: Commit updated state
+        run: |
+          git config user.name "chandelier-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add state/
+          git diff --cached --quiet && echo "no state changes" && exit 0
+          git commit -m "Chandelier bot run $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push
