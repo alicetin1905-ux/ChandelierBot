@@ -143,3 +143,13 @@ test('client: OKX errors surface with their code', async () => {
   const client = okxDemo.createClient({ apiKey: 'k', apiSecret: 's', passphrase: 'p', fetchImpl: async () => ({ json: async () => ({ code: '50101', msg: 'APIKey does not match current environment', data: [] }) }) });
   await assert.rejects(client.getWallet(), /OKX 50101/);
 });
+
+test('connect: finds the regional OKX site that knows the key', async () => {
+  const logs = [];
+  const create = ({ base }) => ({ base, getConfig: async () => { if (base !== 'https://my.okx.com') throw new Error('GET /api/v5/account/config -> OKX 50119: API key doesn\'t exist'); return { acctLv: 2, posMode: 'net_mode' }; } });
+  const c = await okxDemo.connect({ OKX_API_KEY: 'k', OKX_API_SECRET: 's', OKX_API_PASSPHRASE: 'p' }, { log: (m) => logs.push(m), create });
+  assert.strictEqual(c.site, 'https://my.okx.com');
+  assert.ok(/OKX_API_BASE=https:\/\/my.okx.com/.test(logs[0]));
+  const none = ({ base }) => ({ base, getConfig: async () => { throw new Error('OKX 50119: API key doesn\'t exist'); } });
+  await assert.rejects(okxDemo.connect({ OKX_API_KEY: 'k', OKX_API_SECRET: 's', OKX_API_PASSPHRASE: 'p' }, { create: none }), /tried https:\/\/www.okx.com, https:\/\/my.okx.com, https:\/\/app.okx.com, https:\/\/tr.okx.com/);
+});

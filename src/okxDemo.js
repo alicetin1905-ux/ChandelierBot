@@ -179,4 +179,34 @@ function fromEnv(env = process.env) {
 }
 function hasKeys(env = process.env) { return !!(clean(env.OKX_API_KEY) && clean(env.OKX_API_SECRET) && clean(env.OKX_API_PASSPHRASE)); }
 
-module.exports = { createClient, fromEnv, hasKeys, sign, instId };
+// OKX's own sites: a key only exists on the site its account belongs to.
+const SITES = ['https://www.okx.com', 'https://my.okx.com', 'https://app.okx.com', 'https://tr.okx.com'];
+
+// Client from the environment. Without OKX_API_BASE, if www.okx.com doesn't
+// know the key (50119), tries OKX's regional sites and uses the one that does.
+async function connect(env = process.env, { log = console.log, create = createClient } = {}) {
+  const keys = { apiKey: clean(env.OKX_API_KEY), apiSecret: clean(env.OKX_API_SECRET), passphrase: clean(env.OKX_API_PASSPHRASE) };
+  const fixed = clean(env.OKX_API_BASE);
+  const client = create({ ...keys, base: fixed || SITES[0] });
+  try {
+    client.config = await client.getConfig();
+    client.site = fixed || SITES[0];
+    return client;
+  } catch (err) {
+    if (fixed || !/OKX 50119/.test(err.message)) throw err;
+    const tried = [SITES[0]];
+    for (const base of SITES.slice(1)) {
+      tried.push(base);
+      try {
+        const c = create({ ...keys, base });
+        c.config = await c.getConfig();
+        c.site = base;
+        log(`OKX key found on ${base} — set the repository variable OKX_API_BASE=${base} to skip this lookup`);
+        return c;
+      } catch (e) { /* not this site */ }
+    }
+    throw new Error(`${err.message} (tried ${tried.join(', ')})`);
+  }
+}
+
+module.exports = { createClient, fromEnv, connect, hasKeys, sign, instId, SITES };

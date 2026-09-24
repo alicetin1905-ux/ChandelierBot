@@ -193,7 +193,7 @@ function currentMode() { return okxDemo.hasKeys() ? 'okx-demo' : 'paper'; }
 // OKX account settings the orders rely on: margin trading enabled (swaps
 // don't trade in "Spot" mode) and not Portfolio margin (no close-all stops there).
 async function checkAccount(client) {
-  const c = await client.getConfig();
+  const c = client.config || await client.getConfig();
   if (c.acctLv === 1) throw new Error('OKX account mode is "Spot" — switch the demo account to "Futures" / single-currency margin (Trade settings -> Account mode) so it can trade perpetual swaps');
   if (c.acctLv === 4) throw new Error('OKX account mode is "Portfolio margin" — switch the demo account to single- or multi-currency margin');
   return c;
@@ -203,14 +203,14 @@ async function main() {
   const args = process.argv.slice(2);
   const mode = currentMode();
   const st = state.load(config);
-  const client = mode === 'okx-demo' ? okxDemo.fromEnv() : null;
+  const client = mode === 'okx-demo' ? await okxDemo.connect() : null;
 
   if (args.includes('--check')) {
     if (!client) { console.log('No OKX demo keys set — the bot runs in paper mode.'); return; }
     const c = await checkAccount(client);
     const w = await client.getWallet();
     const pos = await client.getPositions();
-    console.log(`OKX demo OK · account mode ${c.acctLv} · position mode ${c.posMode}`);
+    console.log(`OKX demo OK on ${client.site} · account mode ${c.acctLv} · position mode ${c.posMode}`);
     console.log(`USDT equity ${w.equity.toFixed(2)} · available ${w.available.toFixed(2)}`);
     console.log(`Open swap positions: ${Object.keys(pos).length ? Object.entries(pos).map(([s, p]) => `${s} ${p.bias === 1 ? 'long' : 'short'} ${p.contracts}`).join(', ') : 'none'}`);
     return;
