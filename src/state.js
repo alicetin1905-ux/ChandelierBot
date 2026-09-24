@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 
 const DIR = path.join(__dirname, '..', 'state');
-const KEYS = ['account', 'positions', 'trades', 'signals', 'used', 'equity', 'notify'];
+const KEYS = ['account', 'positions', 'trades', 'signals', 'used', 'equity', 'notify', 'closing', 'seenTrades'];
 const EQUITY_KEEP = 24 * 90; // ~90 days of hourly points
 
 function readJson(name, fallback) {
@@ -20,7 +20,7 @@ function writeJson(name, data) {
 
 function freshAccount(config, now = Date.now()) {
   const b = config.PORTFOLIO.STARTING_BALANCE;
-  return { startingBalance: b, balance: b, createdAt: now, updatedAt: now };
+  return { startingBalance: b, balance: b, createdAt: now, updatedAt: now, mode: 'paper' };
 }
 
 function load(config) {
@@ -32,6 +32,8 @@ function load(config) {
     used: readJson('used', {}),            // symbol -> flipAt of the last Chandelier flip traded
     equity: readJson('equity', []),        // [time, balance, equity incl. open P&L]
     notify: readJson('notify', {}),        // which scheduled pushes went out
+    closing: readJson('closing', {}),      // OKX demo: closed positions whose last fills may still land
+    seenTrades: readJson('seenTrades', []), // OKX demo: fill ids already booked
   };
 }
 

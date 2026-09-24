@@ -25,6 +25,16 @@ jobs:
         with:
           node-version: '20'
 
+      # OKX demo mode: close everything on OKX first; the reset stops if that fails.
+      - name: Close OKX demo positions
+        env:
+          OKX_API_KEY: ${{ secrets.OKX_API_KEY }}
+          OKX_API_SECRET: ${{ secrets.OKX_API_SECRET }}
+          OKX_API_PASSPHRASE: ${{ secrets.OKX_API_PASSPHRASE }}
+          OKX_API_BASE: ${{ vars.OKX_API_BASE }}
+        run: |
+          if [ -n "$OKX_API_KEY" ]; then node src/run.js --close-all; else echo "paper mode — nothing to close on OKX"; fi
+
       - name: Reset to the starting balance
         run: node src/reset.js ${{ inputs.clear_history && '--clear-history' || '' }}
 

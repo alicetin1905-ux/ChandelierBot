@@ -9,7 +9,8 @@ const state = require('./state');
 
 const clear = process.argv.includes('--clear-history');
 const st = state.load(config);
-st.account = state.freshAccount(config);
+st.account = { ...state.freshAccount(config), mode: st.account.mode || 'paper' };
+st.closing = {};
 st.positions = {};
 st.used = {};
 st.equity = [];

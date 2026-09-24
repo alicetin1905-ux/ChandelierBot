@@ -5,7 +5,13 @@ on:
     # Every hour at :07 — after each 1H candle closes (and each 4H close at
     # 00/04/08/12/16/20 UTC, when new entries are decided).
     - cron: '7 * * * *'
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'run = normal run · check = test the OKX demo keys (no trading) · close-all = close every OKX demo position'
+        type: choice
+        options: [run, check, close-all]
+        default: run
 
 # Needed so the job can commit the updated state/*.json back to the repo.
 permissions:
@@ -26,10 +32,24 @@ jobs:
         with:
           node-version: '20'
 
+      # With these three secrets set (repo Settings -> Secrets and variables ->
+      # Actions) the bot trades the OKX DEMO account; without them it paper-trades.
       - name: Run Chandelier bot
-        run: node src/run.js
+        env:
+          OKX_API_KEY: ${{ secrets.OKX_API_KEY }}
+          OKX_API_SECRET: ${{ secrets.OKX_API_SECRET }}
+          OKX_API_PASSPHRASE: ${{ secrets.OKX_API_PASSPHRASE }}
+          OKX_API_BASE: ${{ vars.OKX_API_BASE }}
+          ACTION: ${{ inputs.action || 'run' }}
+        run: |
+          case "$ACTION" in
+            check) node src/run.js --check ;;
+            close-all) node src/run.js --close-all ;;
+            *) node src/run.js ;;
+          esac
 
       - name: Commit updated state
+        if: ${{ always() && (inputs.action || 'run') != 'check' }}
         run: |
           git config user.name "chandelier-bot"
           git config user.email "actions@users.noreply.github.com"

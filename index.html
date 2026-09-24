@@ -65,8 +65,8 @@
   <h1><span>Chandelier</span> Bot</h1>
   <div class="sub">CE 4/2 · ZLSMA 38 · MACD 5/35/5 · 4H</div>
 </div>
-<div class="banner">
-  <b>Paper trading only</b> — OKX public prices, simulated fills, no exchange account. Entry on a 4H Chandelier Exit flip confirmed by close vs ZLSMA 38 and MACD 5/35/5; TradeBot's money rules: $1,000 shared, $50 loss at the stop (max $200 margin at 10x), T1/T2/T3 at 1.5/3/4.5R (40/35/25%), breakeven after T1, max 5 open / 3 per side.
+<div class="banner" id="banner">
+  <b id="modeLabel">Paper trading</b> — <span id="modeText">OKX public prices, simulated fills, no exchange account.</span> Entry on a 4H Chandelier Exit flip confirmed by close vs ZLSMA 38 and MACD 5/35/5; TradeBot's money rules: $1,000 shared, $50 loss at the stop (max $200 margin at 10x), T1/T2/T3 at 1.5/3/4.5R (40/35/25%), breakeven after T1, max 5 open / 3 per side.
 </div>
 
 <div class="card">
@@ -240,6 +240,11 @@
       $('balance').textContent = money(account.balance);
       $('started').textContent = 'started ' + money(account.startingBalance);
       $('updated').textContent = 'Last bot run ' + ago(account.updatedAt);
+      var demo = account.mode === 'okx-demo';
+      $('modeLabel').textContent = demo ? 'OKX demo trading' : 'Paper trading';
+      $('modeText').textContent = demo
+        ? 'real orders on your OKX demo account (demo funds). Stops and targets sit on OKX; P&L is OKX\'s own, net of fees.' + (account.exchangeEquity != null ? ' Demo wallet: ' + money(account.exchangeEquity) + '.' : '')
+        : 'OKX public prices, simulated fills, no exchange account.';
     }
     $('upnl').textContent = signed(upnl); $('upnl').className = 'value ' + cls(upnl);
     $('slots').textContent = Object.keys(positions).length + '/' + MAX_OPEN + ' slots used';
