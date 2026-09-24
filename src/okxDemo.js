@@ -110,7 +110,7 @@ function createClient({ apiKey, apiSecret, passphrase, base = 'https://www.okx.c
     // Diagnostics for --check: every swap this account may trade, and every non-zero balance.
     async listSwaps(instType = 'SWAP') {
       const rows = await call('GET', '/api/v5/account/instruments', { instType });
-      return rows.map(i => ({ instId: i.instId, settle: i.settleCcy || i.quoteCcy, state: i.state }));
+      return rows.map(i => ({ instId: i.instId, settle: i.settleCcy || i.quoteCcy, state: i.state, raw: i }));
     },
     async balances() {
       const [b] = await call('GET', '/api/v5/account/balance');

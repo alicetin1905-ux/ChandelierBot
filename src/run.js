@@ -241,6 +241,12 @@ async function main() {
       const coins = config.SYMBOLS.map(sym => sym.replace('USDT', '')).filter(c => rows.some(i => i.instId.startsWith(c + '-')));
       const quotes = [...new Set(rows.filter(i => coins.some(c => i.instId.startsWith(c + '-'))).map(i => i.instId.split('-')[1]))];
       console.log(`${type}: ${rows.length} instruments · bot coins: ${coins.join(', ') || 'none'}${quotes.length ? ' · quoted in ' + quotes.join('/') : ''}`);
+      if (type === 'FUTURES') {
+        const keep = ['instId', 'instFamily', 'uly', 'ctType', 'ctVal', 'ctValCcy', 'ctMult', 'settleCcy', 'quoteCcy', 'lotSz', 'minSz', 'tickSz', 'lever', 'expTime', 'listTime', 'alias', 'state', 'ruleType'];
+        for (const r of rows.filter(i => coins.some(c => i.instId.startsWith(c + '-')))) {
+          console.log('  ' + JSON.stringify(Object.fromEntries(keep.filter(k => r.raw[k] !== undefined && r.raw[k] !== '').map(k => [k, r.raw[k]]))));
+        }
+      }
     }
     const swaps = await client.listSwaps();
     const bySettle = {};
