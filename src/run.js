@@ -225,6 +225,13 @@ async function main() {
     console.log(`OKX demo key OK on ${client.site} · account mode ${c.acctLv} · position mode ${c.posMode}`);
     const bal = await client.balances();
     console.log(`Balances: ${bal.details.length ? bal.details.map(d => `${d.ccy} ${d.eq} (available ${d.avail})`).join(', ') : 'none'} · total ≈ $${bal.totalEq.toFixed(2)}`);
+    for (const type of ['FUTURES', 'MARGIN', 'SPOT']) {
+      const rows = await client.listSwaps(type).catch(err => { console.log(`${type}: ${err.message}`); return null; });
+      if (!rows) continue;
+      const coins = config.SYMBOLS.map(sym => sym.replace('USDT', '')).filter(c => rows.some(i => i.instId.startsWith(c + '-')));
+      const quotes = [...new Set(rows.filter(i => coins.some(c => i.instId.startsWith(c + '-'))).map(i => i.instId.split('-')[1]))];
+      console.log(`${type}: ${rows.length} instruments · bot coins: ${coins.join(', ') || 'none'}${quotes.length ? ' · quoted in ' + quotes.join('/') : ''}`);
+    }
     const swaps = await client.listSwaps();
     const bySettle = {};
     for (const i of swaps) bySettle[i.settle] = (bySettle[i.settle] || 0) + 1;
