@@ -11,6 +11,7 @@ const config = require('../config');
 const okxDemo = require('../src/okxDemo');
 const notify = require('../src/notify');
 const { splitTargets } = require('../src/exchange');
+const okx = require('../src/okx');
 
 const symbol = process.argv.find(a => /USDT$/.test(a)) || 'BTCUSDT';
 const notional = +process.argv.find(a => /^\d+(\.\d+)?$/.test(a)) || 100;
@@ -31,10 +32,11 @@ async function main() {
     log(`1. leverage set to ${config.PORTFOLIO.LEVERAGE}x ✓`);
 
     const w = await client.getWallet();
-    const markPx = +(await (await fetch(`${client.site}/api/v5/public/mark-price?instType=FUTURES&instId=${inst.instId}`)).json()).data[0].markPx;
+    // Sizing price from the USDT perp, like the bot (X-Perps aren't in OKX's public market data).
+    const markPx = (await okx.getKlines(symbol, '60', 1)).pop().c;
     const lot = inst.lotSz;
     const contracts = Math.max(inst.minSz * 3, +(Math.floor(notional / markPx / inst.ctVal / lot) * lot).toFixed(decimals(inst.lotStr)));
-    log(`   ${config.SETTLE_CCY} available ${w.available.toFixed(2)} · mark ${markPx} · size ${contracts} contracts (≈$${(contracts * inst.ctVal * markPx).toFixed(0)})`);
+    log(`   ${config.SETTLE_CCY} available ${w.available.toFixed(2)} · price ${markPx} · size ${contracts} contracts (≈$${(contracts * inst.ctVal * markPx).toFixed(0)})`);
 
     const entryId = await client.openMarket({ symbol, bias: 1, contracts });
     opened = true;
