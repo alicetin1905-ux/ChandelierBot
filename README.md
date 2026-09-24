@@ -140,7 +140,7 @@ node src/reset.js [--clear-history]
 
 Requires Node 18+ (native `fetch`), no dependencies. Keys only for OKX demo mode (environment variables above).
 
-`.github/workflows/bot.yml` runs it every hour at :07 and commits
+`.github/workflows/bot.yml` runs it every hour at :13 and commits
 `state/*.json` back to the repo. **Reset** on the dashboard opens
 `.github/workflows/reset.yml` → *Run workflow* (tick "Also wipe the
 closed-trade history" to start completely fresh).

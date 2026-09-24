@@ -17,6 +17,15 @@ function sign(secret, ts, method, path, body) {
   return crypto.createHmac('sha256', secret).update(ts + method + path + body).digest('base64');
 }
 
+// What the usual key/setup errors mean, added to the error message.
+const HINTS = {
+  50101: 'this is a live-trading key; create the key inside OKX Demo Trading instead',
+  50105: 'wrong passphrase: OKX_API_PASSPHRASE must be the passphrase you chose when creating this key',
+  50111: 'OKX_API_KEY is not a valid key',
+  50113: 'signature rejected: check OKX_API_SECRET (the "Secret key" shown once when the key was created)',
+  50119: 'OKX does not know this key at this address: check OKX_API_KEY, that the key was created in Demo Trading and still exists, and — if your account is on a regional OKX site (e.g. EEA my.okx.com, US app.okx.com) — set the repository variable OKX_API_BASE to that site',
+};
+
 function instId(symbol) { return symbol.replace('USDT', '') + '-USDT-SWAP'; }
 function symbolOf(id) { return id.replace('-USDT-SWAP', 'USDT'); }
 
@@ -51,7 +60,7 @@ function createClient({ apiKey, apiSecret, passphrase, base = 'https://www.okx.c
     try { d = await res.json(); } catch (e) { throw new Error(`${method} ${path} -> HTTP ${res.status}`); }
     if (d.code !== '0') {
       const detail = (d.data || []).map(x => x.sMsg || x.sCode).filter(Boolean).join('; ');
-      throw new Error(`${method} ${path.split('?')[0]} -> OKX ${d.code}: ${d.msg || ''}${detail ? ' (' + detail + ')' : ''}`);
+      throw new Error(`${method} ${path.split('?')[0]} -> OKX ${d.code}: ${d.msg || ''}${detail ? ' (' + detail + ')' : ''}${HINTS[d.code] ? ' — ' + HINTS[d.code] : ''}`);
     }
     // Batch/order endpoints report per-item failures inside data.
     for (const x of d.data || []) {
@@ -163,9 +172,11 @@ function createClient({ apiKey, apiSecret, passphrase, base = 'https://www.okx.c
   };
 }
 
+// Secrets pasted with a stray space or newline would otherwise fail as "key doesn't exist".
+const clean = (v) => (v || '').trim();
 function fromEnv(env = process.env) {
-  return createClient({ apiKey: env.OKX_API_KEY, apiSecret: env.OKX_API_SECRET, passphrase: env.OKX_API_PASSPHRASE, base: env.OKX_API_BASE || undefined });
+  return createClient({ apiKey: clean(env.OKX_API_KEY), apiSecret: clean(env.OKX_API_SECRET), passphrase: clean(env.OKX_API_PASSPHRASE), base: clean(env.OKX_API_BASE) || undefined });
 }
-function hasKeys(env = process.env) { return !!(env.OKX_API_KEY && env.OKX_API_SECRET && env.OKX_API_PASSPHRASE); }
+function hasKeys(env = process.env) { return !!(clean(env.OKX_API_KEY) && clean(env.OKX_API_SECRET) && clean(env.OKX_API_PASSPHRASE)); }
 
 module.exports = { createClient, fromEnv, hasKeys, sign, instId };

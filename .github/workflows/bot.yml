@@ -2,9 +2,10 @@ name: Run Chandelier bot
 
 on:
   schedule:
-    # Every hour at :07 — after each 1H candle closes (and each 4H close at
-    # 00/04/08/12/16/20 UTC, when new entries are decided).
-    - cron: '7 * * * *'
+    # Every hour at :13 — after each 1H candle closes (and each 4H close at
+    # 00/04/08/12/16/20 UTC, when new entries are decided). Off the top of
+    # the hour, where GitHub's scheduler is least congested.
+    - cron: '13 * * * *'
   workflow_dispatch:
     inputs:
       action:
